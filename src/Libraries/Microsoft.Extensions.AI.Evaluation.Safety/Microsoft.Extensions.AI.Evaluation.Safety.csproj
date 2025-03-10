@@ -24,5 +24,11 @@
   <ItemGroup>
     <InternalsVisibleToTest Include="Microsoft.Extensions.AI.Evaluation.Tests" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Core" />
+    <PackageReference Include="Azure.AI.Inference" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+  </ItemGroup>
   
 </Project>
