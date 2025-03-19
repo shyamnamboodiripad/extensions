@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Shared.Diagnostics;
 
@@ -34,5 +35,35 @@ public static class EvaluationMetricExtensions
         _ = Throw.IfNull(metric);
 
         return predicate is null ? metric.Diagnostics.Any() : metric.Diagnostics.Any(predicate);
+    }
+
+    /// <summary>
+    /// Adds the supplied <see cref="EvaluationDiagnostic"/> to the supplied <see cref="EvaluationMetric"/>'s
+    /// <see cref="EvaluationMetric.Diagnostics"/> collection.
+    /// </summary>
+    /// <param name="metric">The <see cref="EvaluationMetric"/>.</param>
+    /// <param name="diagnostic">The <see cref="EvaluationDiagnostic"/> to be added.</param>
+    public static void AddDiagnostic(this EvaluationMetric metric, EvaluationDiagnostic diagnostic)
+    {
+        _ = Throw.IfNull(metric);
+
+        metric.Diagnostics.Add(diagnostic);
+    }
+
+    /// <summary>
+    /// Adds the supplied <see cref="EvaluationDiagnostic"/>s to the supplied <see cref="EvaluationMetric"/>'s
+    /// <see cref="EvaluationMetric.Diagnostics"/> collection.
+    /// </summary>
+    /// <param name="metric">The <see cref="EvaluationMetric"/>.</param>
+    /// <param name="diagnostics">The <see cref="EvaluationDiagnostic"/>s to be added.</param>
+    public static void AddDiagnostics(this EvaluationMetric metric, IEnumerable<EvaluationDiagnostic> diagnostics)
+    {
+        _ = Throw.IfNull(metric);
+        _ = Throw.IfNull(diagnostics);
+
+        foreach (EvaluationDiagnostic diagnostic in diagnostics)
+        {
+            metric.AddDiagnostic(diagnostic);
+        }
     }
 }

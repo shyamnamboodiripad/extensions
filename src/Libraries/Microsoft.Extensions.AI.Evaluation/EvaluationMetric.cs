@@ -53,12 +53,4 @@ public class EvaluationMetric(string name, string? reason = null)
     // convenience.
     public IList<EvaluationDiagnostic> Diagnostics { get; set; } = [];
 #pragma warning restore CA2227
-
-    /// <summary>
-    /// Adds a <see cref="EvaluationDiagnostic"/> to the current <see cref="EvaluationMetric"/>'s
-    /// <see cref="Diagnostics"/>.
-    /// </summary>
-    /// <param name="diagnostic">The <see cref="EvaluationDiagnostic"/> to be added.</param>
-    public void AddDiagnostic(EvaluationDiagnostic diagnostic)
-        => Diagnostics.Add(diagnostic);
 }

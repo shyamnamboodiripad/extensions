@@ -18,6 +18,9 @@ namespace Microsoft.Extensions.AI.Evaluation.Safety;
 /// Azure AI Content Safety service to produce <see cref="EvaluationResult"/>s containing <see cref="NumericMetric"/>
 /// scores for content safety metrics such as hate and unfairness, self-harm, violence etc.
 /// </summary>
+/// <param name="contentSafetyMetric">
+/// The <see cref="ContentSafetyMetric"/> that this <see cref="ContentSafetyEvaluator"/> should evaluate.
+/// </param>
 /// <param name="serviceConfiguration">
 /// Specifies the Azure AI project that should be used and credentials that should be used when this
 /// <see cref="ContentSafetyEvaluator"/> communicates with the Azure AI Content Safety service to perform evaluations.
@@ -26,39 +29,35 @@ namespace Microsoft.Extensions.AI.Evaluation.Safety;
 /// The <see cref="IHttpClientFactory"/> that should be used to create the <see cref="HttpClient"/> that this
 /// <see cref="ContentSafetyEvaluator"/> uses when communicating with the Azure AI Content Safety service.
 /// </param>
-public abstract class ContentSafetyEvaluator(
+public class ContentSafetyEvaluator(
+    ContentSafetyMetric contentSafetyMetric,
     ContentSafetyServiceConfiguration serviceConfiguration,
     IHttpClientFactory httpClientFactory) : IEvaluator
 {
     /// <inheritdoc/>
-    public IReadOnlyCollection<string> EvaluationMetricNames => [MetricName];
+    public IReadOnlyCollection<string> EvaluationMetricNames { get; } = [contentSafetyMetric.GetDisplayName()];
 
-    /// <summary>
-    /// Gets the Azure AI project that should be used and credentials that should be used when this
-    /// <see cref="ContentSafetyEvaluator"/> communicates with the Azure AI Content Safety service to perform
-    /// evaluations.
-    /// </summary>
-    protected ContentSafetyServiceConfiguration ServiceConfiguration { get; } = serviceConfiguration;
-
-    /// <summary>
-    /// Gets the <see cref="IHttpClientFactory"/> that should be used to create the <see cref="HttpClient"/> that this
-    /// <see cref="ContentSafetyEvaluator"/> uses when communicating with the Azure AI Content Safety service.
-    /// </summary>
-    protected IHttpClientFactory HttpClientFactory { get; } = httpClientFactory;
-
-    /// <summary>
-    /// Gets the <see cref="EvaluationMetric.Name"/> of the <see cref="NumericMetric"/> produced by this
-    /// <see cref="IEvaluator"/>.
-    /// </summary>
-    protected abstract string MetricName { get; }
-
-    public ValueTask<EvaluationResult> EvaluateAsync(
+    /// <inheritdoc/>
+    public async ValueTask<EvaluationResult> EvaluateAsync(
         IEnumerable<ChatMessage> messages,
-        ChatMessage modelResponse,
+        ChatResponse modelResponse,
         ChatConfiguration? chatConfiguration = null,
         IEnumerable<EvaluationContext>? additionalContext = null,
         CancellationToken cancellationToken = default)
     {
+        ContentSafetyService service =
+            new ContentSafetyService(
+                serviceConfiguration,
+                nameof(ContentSafetyEvaluator),
+                contentSafetyMetric.GetMetricName(),
+                httpClientFactory);
 
+        var result =
+            await service.EvaluateAsync(
+                messages,
+                modelResponse,
+                cancellationToken).ConfigureAwait(false);
+
+        return result;
     }
 }
