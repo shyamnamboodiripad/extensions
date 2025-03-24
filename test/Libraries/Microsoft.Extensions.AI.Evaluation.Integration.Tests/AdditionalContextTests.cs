@@ -3,7 +3,6 @@
 
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using FluentAssertions.Execution;
@@ -39,7 +38,8 @@ public class AdditionalContextTests
                     storageRootPath: Settings.Current.StorageRootPath,
                     evaluators: [groundednessEvaluator, equivalenceEvaluator],
                     chatConfiguration: Setup.CreateChatConfiguration(),
-                    executionName: Constants.Version);
+                    executionName: Constants.Version,
+                    tags: ["gpt-4o", Constants.Version, "context"]);
         }
     }
 
@@ -60,13 +60,7 @@ public class AdditionalContextTests
         messages.Add(promptMessage);
 
         ChatResponse response = await chatClient.GetResponseAsync(messages, _chatOptions);
-        ChatMessage responseMessage = response.Messages.Single();
-        Assert.NotNull(responseMessage.Text);
-
-        EvaluationResult result =
-            await scenarioRun.EvaluateAsync(
-                promptMessage,
-                responseMessage);
+        EvaluationResult result = await scenarioRun.EvaluateAsync(promptMessage, response);
 
         using var _ = new AssertionScope();
 
@@ -95,8 +89,6 @@ public class AdditionalContextTests
         messages.Add(promptMessage);
 
         ChatResponse response = await chatClient.GetResponseAsync(messages, _chatOptions);
-        ChatMessage responseMessage = response.Messages.Single();
-        Assert.NotNull(responseMessage.Text);
 
         var baselineResponseForEquivalenceEvaluator =
             new EquivalenceEvaluatorContext(
@@ -118,7 +110,7 @@ public class AdditionalContextTests
         EvaluationResult result =
             await scenarioRun.EvaluateAsync(
                 promptMessage,
-                responseMessage,
+                response,
                 additionalContext: [baselineResponseForEquivalenceEvaluator, groundingContextForGroundednessEvaluator]);
 
         using var _ = new AssertionScope();

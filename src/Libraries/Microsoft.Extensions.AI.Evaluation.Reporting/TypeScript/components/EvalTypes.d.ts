@@ -11,20 +11,41 @@ type ScenarioRunResult = {
     scenarioName: string;
     iterationName: string;
     executionName: string;
-    creationTime?: string;
+    creationTime: string;
     messages: ChatMessage[];
     modelResponse: ChatResponse;
     evaluationResult: EvaluationResult;
+    formatVersion: int;
+    chatDetails?: ChatDetails;
+    tags?: string[];
 };
 
 type ChatResponse = {
     messages: ChatMessage[];
+    usage?: UsageDetails;
 }
 
 type ChatMessage = {
     authorName?: string;
     role: string;
-    contents: AIContent[]
+    contents: AIContent[];
+};
+
+type ChatDetails = {
+    turnDetails: ChatTurnDetails[];
+}
+
+type ChatTurnDetails = {
+    latency: number;
+    usage: UsageDetails;
+    cacheKey?: string;
+    cacheHit?: boolean;
+}
+
+type UsageDetails = {
+    inputTokenCount: number;
+    outputTokenCount: number;
+    totalTokenCount: number;
 };
 
 type AIContent = {

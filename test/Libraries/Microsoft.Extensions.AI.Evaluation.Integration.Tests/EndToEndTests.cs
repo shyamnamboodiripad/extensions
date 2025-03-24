@@ -6,7 +6,6 @@
 
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI.Evaluation;
 using Microsoft.Extensions.AI.Evaluation.Quality;
@@ -42,7 +41,8 @@ public class EndToEndTests
                     storageRootPath: Settings.Current.StorageRootPath,
                     evaluators: [rtcEvaluator, coherenceEvaluator, fluencyEvaluator],
                     chatConfiguration: Setup.CreateChatConfiguration(),
-                    executionName: Constants.Version);
+                    executionName: Constants.Version,
+                    tags: ["gpt-4o", Constants.Version, "end-to-end"]);
         }
     }
 
@@ -70,11 +70,8 @@ public class EndToEndTests
             messages.Add(promptMessage);
 
             ChatResponse response = await chatClient.GetResponseAsync(messages, _chatOptions);
-            ChatMessage responseMessage = response.Messages.Single();
-            Assert.NotNull(responseMessage.Text);
 
-            EvaluationResult result = await scenarioRun.EvaluateAsync(promptMessage, responseMessage);
-
+            EvaluationResult result = await scenarioRun.EvaluateAsync(promptMessage, response);
             Assert.False(result.ContainsDiagnostics(d => d.Severity >= EvaluationDiagnosticSeverity.Warning));
 
             NumericMetric relevance = result.Get<NumericMetric>(RelevanceTruthAndCompletenessEvaluator.RelevanceMetricName);
@@ -121,11 +118,8 @@ public class EndToEndTests
             messages.Add(promptMessage);
 
             ChatResponse response = await chatClient.GetResponseAsync(messages, _chatOptions);
-            ChatMessage responseMessage = response.Messages.Single();
-            Assert.NotNull(responseMessage.Text);
 
-            EvaluationResult result = await scenarioRun.EvaluateAsync(promptMessage, responseMessage);
-
+            EvaluationResult result = await scenarioRun.EvaluateAsync(promptMessage, response);
             Assert.False(result.ContainsDiagnostics(d => d.Severity >= EvaluationDiagnosticSeverity.Warning));
 
             NumericMetric relevance = result.Get<NumericMetric>(RelevanceTruthAndCompletenessEvaluator.RelevanceMetricName);

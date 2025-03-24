@@ -8,6 +8,7 @@ import { makeStyles } from '@fluentui/react-components';
 import './App.css';
 import { ScoreNode } from './Summary';
 import { ScenarioGroup } from './ScenarioTree';
+import { TagsDisplay } from './TagsDisplay';
 
 type AppProperties = {
   dataset: Dataset,
@@ -26,10 +27,21 @@ function App({ dataset, tree }: AppProperties) {
   const classes = useStyles();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [renderMarkdown, setRenderMarkdown] = useState(true);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const toggleSettings = () => setIsSettingsOpen(!isSettingsOpen);
   const toggleRenderMarkdown = () => setRenderMarkdown(!renderMarkdown);
   const closeSettings = () => setIsSettingsOpen(false);
+
+  const handleTagClick = (tag: string) => {
+    setSelectedTags((prevTags) =>
+      prevTags.includes(tag) ? prevTags.filter((t) => t !== tag) : [...prevTags, tag]
+    );
+  };
+
+  const clearFilters = () => {
+    setSelectedTags([]);
+  };
 
   return (
     <>
@@ -38,17 +50,34 @@ function App({ dataset, tree }: AppProperties) {
         <Settings28Regular onClick={toggleSettings} style={{ cursor: 'pointer' }} />
       </div>
 
-      <ScenarioGroup node={tree} renderMarkdown={renderMarkdown} />
+      <TagsDisplay
+        dataset={dataset}
+        onTagClick={handleTagClick}
+        selectedTags={selectedTags}
+        onClearFilters={clearFilters}
+      />
 
-      <p className={classes.footerText}>Generated at {dataset.createdAt} by Microsoft.Extensions.AI.Evaluation.Reporting version {dataset.generatorVersion}</p>
+      <ScenarioGroup
+        node={tree}
+        renderMarkdown={renderMarkdown}
+        selectedTags={selectedTags}
+      />
 
-      <Drawer open={isSettingsOpen} onOpenChange={toggleSettings} position='end'>
+      <p className={classes.footerText}>
+        Generated at {dataset.createdAt} by Microsoft.Extensions.AI.Evaluation.Reporting version {dataset.generatorVersion}
+      </p>
+
+      <Drawer open={isSettingsOpen} onOpenChange={toggleSettings} position="end">
         <DrawerHeader>
           <DrawerHeaderTitle>Settings</DrawerHeaderTitle>
           <span className={classes.closeButton} onClick={closeSettings}>&times;</span>
         </DrawerHeader>
         <DrawerBody className={classes.drawerBody}>
-          <Switch checked={renderMarkdown} onChange={toggleRenderMarkdown} label={<span className={classes.switchLabel}>Render markdown for conversations</span>} />
+          <Switch
+            checked={renderMarkdown}
+            onChange={toggleRenderMarkdown}
+            label={<span className={classes.switchLabel}>Render markdown for conversations</span>}
+          />
         </DrawerBody>
       </Drawer>
     </>
