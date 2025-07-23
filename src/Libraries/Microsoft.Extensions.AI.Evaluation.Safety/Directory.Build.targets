@@ -12,7 +12,7 @@
 
 namespace $(RootNamespace)%3B
 
-internal static class Constants
+internal static partial class Constants
 {
     public const string Version = "$(Version)"%3B
 }
