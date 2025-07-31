@@ -9,13 +9,15 @@ using System.Threading.Tasks;
 using Azure.Identity;
 using Azure.Storage.Files.DataLake;
 using Microsoft.Extensions.AI.Evaluation.Console.Utilities;
+using Microsoft.Extensions.AI.Evaluation.Console.Utilities.Telemetry;
 using Microsoft.Extensions.AI.Evaluation.Reporting;
 using Microsoft.Extensions.AI.Evaluation.Reporting.Storage;
 using Microsoft.Extensions.Logging;
+using Microsoft.Shared.Text;
 
 namespace Microsoft.Extensions.AI.Evaluation.Console.Commands;
 
-internal sealed class CleanResultsCommand(ILogger logger)
+internal sealed class CleanResultsCommand(ILogger logger, TelemetryHelper telemetryHelper)
 {
     internal async Task<int> InvokeAsync(
         DirectoryInfo? storageRootDir,
@@ -23,61 +25,81 @@ internal sealed class CleanResultsCommand(ILogger logger)
         int lastN,
         CancellationToken cancellationToken = default)
     {
-        IEvaluationResultStore resultStore;
-
-        if (storageRootDir is not null)
+        var telemetryProperties = new Dictionary<string, string>
         {
-            string storageRootPath = storageRootDir.FullName;
-            logger.LogInformation("Storage root path: {storageRootPath}", storageRootPath);
+            [TelemetryConstants.PropertyNames.LastN] = lastN.ToInvariantString(),
+            [TelemetryConstants.PropertyNames.StorageType] =
+                storageRootDir is not null
+                    ? TelemetryConstants.PropertyValues.StorageTypeDisk
+                    : TelemetryConstants.PropertyValues.StorageTypeAzure
+        };
 
-            resultStore = new DiskBasedResultStore(storageRootPath);
-        }
-        else if (endpointUri is not null)
-        {
-            logger.LogInformation("Azure Storage endpoint: {endpointUri}", endpointUri);
-
-            var fsClient = new DataLakeDirectoryClient(endpointUri, new DefaultAzureCredential());
-            resultStore = new AzureStorageResultStore(fsClient);
-        }
-        else
-        {
-            throw new InvalidOperationException("Either --path or --endpoint must be specified");
-        }
-
-        await logger.ExecuteWithCatchAsync(
-            async ValueTask () =>
+        await telemetryHelper.TrackOperation(
+            operationName: nameof(CleanCacheCommand),
+            operation: async () =>
             {
-                if (lastN is 0)
-                {
-                    logger.LogInformation("Deleting all results...");
+                IEvaluationResultStore resultStore;
 
-                    await resultStore.DeleteResultsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                if (storageRootDir is not null)
+                {
+                    string storageRootPath = storageRootDir.FullName;
+                    logger.LogInformation("Storage root path: {storageRootPath}", storageRootPath);
+
+                    resultStore = new DiskBasedResultStore(storageRootPath);
+                }
+                else if (endpointUri is not null)
+                {
+                    logger.LogInformation("Azure Storage endpoint: {endpointUri}", endpointUri);
+
+                    var fsClient = new DataLakeDirectoryClient(endpointUri, new DefaultAzureCredential());
+                    resultStore = new AzureStorageResultStore(fsClient);
                 }
                 else
                 {
-                    logger.LogInformation("Deleting all results except the {lastN} most recent ones...", lastN);
+                    throw new InvalidOperationException("Either --path or --endpoint must be specified");
+                }
 
-                    HashSet<string> toPreserve = [];
-
-                    await foreach (string executionName in
-                        resultStore.GetLatestExecutionNamesAsync(lastN, cancellationToken).ConfigureAwait(false))
+                await logger.ExecuteWithCatchAsync(
+                    async ValueTask () =>
                     {
-                        _ = toPreserve.Add(executionName);
-                    }
-
-                    await foreach (string executionName in
-                        resultStore.GetLatestExecutionNamesAsync(
-                            cancellationToken: cancellationToken).ConfigureAwait(false))
-                    {
-                        if (!toPreserve.Contains(executionName))
+                        if (lastN is 0)
                         {
+                            logger.LogInformation("Deleting all results...");
+
                             await resultStore.DeleteResultsAsync(
-                                executionName,
                                 cancellationToken: cancellationToken).ConfigureAwait(false);
                         }
-                    }
-                }
-            }).ConfigureAwait(false);
+                        else
+                        {
+                            logger.LogInformation(
+                                "Deleting all results except the {lastN} most recent ones...",
+                                lastN);
+
+                            HashSet<string> toPreserve = [];
+
+                            await foreach (string executionName in
+                                resultStore.GetLatestExecutionNamesAsync(
+                                    lastN,
+                                    cancellationToken).ConfigureAwait(false))
+                            {
+                                _ = toPreserve.Add(executionName);
+                            }
+
+                            await foreach (string executionName in
+                                resultStore.GetLatestExecutionNamesAsync(
+                                    cancellationToken: cancellationToken).ConfigureAwait(false))
+                            {
+                                if (!toPreserve.Contains(executionName))
+                                {
+                                    await resultStore.DeleteResultsAsync(
+                                        executionName,
+                                        cancellationToken: cancellationToken).ConfigureAwait(false);
+                                }
+                            }
+                        }
+                    }).ConfigureAwait(false);
+            },
+            properties: telemetryProperties).ConfigureAwait(false);
 
         return 0;
     }

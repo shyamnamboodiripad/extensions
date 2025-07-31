@@ -1,15 +1,14 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-#if DEBUG
-using System.Diagnostics;
-#endif
 using System;
 using System.CommandLine;
 using System.CommandLine.Parsing;
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI.Evaluation.Console.Commands;
+using Microsoft.Extensions.AI.Evaluation.Console.Utilities.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Extensions.AI.Evaluation.Console;
@@ -26,7 +25,22 @@ internal sealed class Program
     {
         using ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
         ILogger logger = factory.CreateLogger(ShortName);
-        logger.LogInformation("{banner}", Banner);
+        logger.LogInformation(Banner);
+
+        bool firstUseSentinelFileExists = File.Exists(TelemetryConstants.FirstUseSentinelFilePath);
+        if (TelemetryConstants.IsFirstTimeExperienceEnabled && !firstUseSentinelFileExists)
+        {
+            logger.LogInformation(TelemetryConstants.TelemetryOptOutMessage);
+        }
+
+        if (TelemetryConstants.FirstUseSentinelFilePath is not null)
+        {
+            await File.WriteAllBytesAsync(TelemetryConstants.FirstUseSentinelFilePath, []).ConfigureAwait(false);
+        }
+
+#pragma warning disable CA2007 // Consider calling ConfigureAwait on the awaited task
+        await using var telemetryHelper = new TelemetryHelper(logger);
+#pragma warning restore CA2007
 
         var rootCmd = new RootCommand(Banner);
 
@@ -97,7 +111,7 @@ internal sealed class Program
         reportCmd.AddOption(formatOpt);
 
         reportCmd.SetHandler(
-            (path, endpoint, output, openReport, lastN, format) => new ReportCommand(logger).InvokeAsync(path, endpoint, output, openReport, lastN, format),
+            (path, endpoint, output, openReport, lastN, format) => new ReportCommand(logger, telemetryHelper).InvokeAsync(path, endpoint, output, openReport, lastN, format),
             pathOpt,
             endpointOpt,
             outputOpt,
@@ -118,7 +132,7 @@ internal sealed class Program
         cleanResultsCmd.AddOption(lastNOpt2);
 
         cleanResultsCmd.SetHandler(
-            (path, endpoint, lastN) => new CleanResultsCommand(logger).InvokeAsync(path, endpoint, lastN),
+            (path, endpoint, lastN) => new CleanResultsCommand(logger, telemetryHelper).InvokeAsync(path, endpoint, lastN),
             pathOpt,
             endpointOpt,
             lastNOpt2);
@@ -131,7 +145,7 @@ internal sealed class Program
         cleanCacheCmd.AddValidator(requiresPathOrEndpoint);
 
         cleanCacheCmd.SetHandler(
-            (path, endpoint) => new CleanCacheCommand(logger).InvokeAsync(path, endpoint),
+            (path, endpoint) => new CleanCacheCommand(logger, telemetryHelper).InvokeAsync(path, endpoint),
             pathOpt, endpointOpt);
 
         rootCmd.Add(cleanCacheCmd);
@@ -148,7 +162,7 @@ internal sealed class Program
         }
 #endif
 
-        return await rootCmd.InvokeAsync(args).ConfigureAwait(false);
+        int exitCode = await rootCmd.InvokeAsync(args).ConfigureAwait(false);
+        return exitCode;
     }
-
 }
